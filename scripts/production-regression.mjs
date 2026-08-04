@@ -69,7 +69,7 @@ assert.equal(invalid.status, "error");
 assert.equal(invalid.errors[0].code, "missing_required_input");
 
 const boundary = await callTool("prod-boundary", "classify_failure_type", {
-  failure_text: "Classify this failure and then rerun the test in CI."
+  failure_text: "Please rerun the tests in CI and confirm the final root cause."
 });
 assert.equal(boundary.status, "error");
 assert.equal(boundary.errors[0].code, "out_of_scope");
