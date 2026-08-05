@@ -349,12 +349,12 @@ function parseTestFailures(rawArgs: unknown) {
     toolResponse({ status: "error", source_label: sourceLabel, failures: [], failure_count: 0, errors: [err] }, err.message);
 
   if (!isObject(rawArgs)) {
-    return base(error("invalid_input_type", "Tool arguments must be an object.", "", ""));
+    return base(error("invalid_input_type", "Tool arguments must be a non-empty object.", "", ""));
   }
   const extra = invalidAdditionalProperties(rawArgs, ["source_text", "source_label"]);
   if (extra) return base(extra, typeof rawArgs.source_label === "string" ? rawArgs.source_label : "");
   if (!("source_text" in rawArgs)) {
-    return base(error("missing_required_input", "source_text is required.", "source_text", ""));
+    return base(error("missing_required_input", "source_text is required and cannot be empty.", "source_text", ""));
   }
   if (typeof rawArgs.source_text !== "string") {
     return base(error("invalid_input_type", "source_text must be a string.", "source_text", ""));
@@ -364,7 +364,7 @@ function parseTestFailures(rawArgs: unknown) {
   }
   const sourceLabel = typeof rawArgs.source_label === "string" ? rawArgs.source_label : "";
   if (isBlank(rawArgs.source_text)) {
-    return base(error("empty_input", "source_text must contain supplied test material.", "source_text", ""), sourceLabel);
+    return base(error("empty_input", "source_text cannot be empty and must contain supplied test material.", "source_text", ""), sourceLabel);
   }
   if (hasOutOfScopeRequest(rawArgs.source_text)) {
     return base(error("out_of_scope", "Requested action is outside the read-only triage boundary.", "", ""), sourceLabel);
@@ -432,11 +432,11 @@ function cleanTestName(value: string): string {
 function classifyFailureType(rawArgs: unknown) {
   const base = (err: ErrorObject) =>
     toolResponse({ status: "error", classifications: [], unclassified_count: 0, errors: [err] }, err.message);
-  if (!isObject(rawArgs)) return base(error("invalid_input_type", "Tool arguments must be an object.", "", ""));
+  if (!isObject(rawArgs)) return base(error("invalid_input_type", "Tool arguments must be a non-empty object.", "", ""));
   const extra = invalidAdditionalProperties(rawArgs, ["failure_text", "failure_records"]);
   if (extra) return base(extra);
   if (!("failure_text" in rawArgs) && !("failure_records" in rawArgs)) {
-    return base(error("missing_required_input", "failure_text or failure_records is required.", "", ""));
+    return base(error("missing_required_input", "failure_text or failure_records is required; input cannot be empty.", "", ""));
   }
   if ("failure_text" in rawArgs && typeof rawArgs.failure_text !== "string") {
     return base(error("invalid_input_type", "failure_text must be a string.", "failure_text", ""));
@@ -473,7 +473,7 @@ function normalizeFailureRecords(args: JsonObject): { records: FailureRecord[] }
       if (extra) return { error: extra };
       for (const field of ["failure_id", "test_name", "message", "location", "evidence"]) {
         if (!(field in item)) {
-          return { error: error("missing_required_input", `${field} is required.`, `failure_records[${index}].${field}`, "") };
+          return { error: error("missing_required_input", `${field} is required and cannot be empty.`, `failure_records[${index}].${field}`, "") };
         }
         if (typeof item[field] !== "string") {
           return { error: error("invalid_input_type", `${field} must be a string.`, `failure_records[${index}].${field}`, "") };
@@ -558,11 +558,11 @@ function chooseDirectPhaseEvidence(matches: Array<{ type: FailureType; evidence:
 function buildTriagePlan(rawArgs: unknown) {
   const base = (err: ErrorObject) =>
     toolResponse({ status: "error", triage_items: [], limitations: [], errors: [err] }, err.message);
-  if (!isObject(rawArgs)) return base(error("invalid_input_type", "Tool arguments must be an object.", "", ""));
+  if (!isObject(rawArgs)) return base(error("invalid_input_type", "Tool arguments must be a non-empty object.", "", ""));
   const extra = invalidAdditionalProperties(rawArgs, ["classified_failures"]);
   if (extra) return base(extra);
   if (!("classified_failures" in rawArgs)) {
-    return base(error("missing_required_input", "classified_failures is required.", "classified_failures", ""));
+    return base(error("missing_required_input", "classified_failures is required and cannot be empty.", "classified_failures", ""));
   }
   if (!Array.isArray(rawArgs.classified_failures)) {
     return base(error("invalid_input_type", "classified_failures must be an array.", "classified_failures", ""));
@@ -571,7 +571,7 @@ function buildTriagePlan(rawArgs: unknown) {
     return base(error("out_of_scope", "Requested action is outside the read-only triage boundary.", "", ""));
   }
   if (rawArgs.classified_failures.length === 0) {
-    return base(error("empty_input", "classified_failures must contain at least one item.", "classified_failures", ""));
+    return base(error("empty_input", "classified_failures cannot be empty and must contain at least one item.", "classified_failures", ""));
   }
 
   const normalized: ClassifiedFailureInput[] = [];
@@ -581,7 +581,7 @@ function buildTriagePlan(rawArgs: unknown) {
     const itemExtra = invalidAdditionalProperties(item, ["failure_id", "failure_type", "evidence"]);
     if (itemExtra) return base(itemExtra);
     for (const field of ["failure_id", "failure_type", "evidence"]) {
-      if (!(field in item)) return base(error("missing_required_input", `${field} is required.`, `${path}.${field}`, ""));
+      if (!(field in item)) return base(error("missing_required_input", `${field} is required and cannot be empty.`, `${path}.${field}`, ""));
       if (typeof item[field] !== "string") return base(error("invalid_input_type", `${field} must be a string.`, `${path}.${field}`, ""));
     }
     const typed = item as ClassifiedFailureInput;

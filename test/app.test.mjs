@@ -55,6 +55,13 @@ function expectError(content, schema, code) {
   assert.equal(content.errors[0].code, code);
 }
 
+function expectEmptyMessageError(content, schema, code, field) {
+  expectError(content, schema, code);
+  assert.match(content.errors[0].message, /empty/, "error message must include lowercase empty");
+  assert.equal(content.errors[0].field, field);
+  assert.notEqual(content.status, "success");
+}
+
 async function withThrowingHandler(toolName, schema, args = {}) {
   const original = internals.toolHandlers[toolName];
   internals.toolHandlers[toolName] = () => {
@@ -276,10 +283,11 @@ test("parse_test_failures keeps conservative identifier when Test line is absent
 });
 
 test("parse_test_failures business errors match output schema", async () => {
-  expectError(await callTool("parse_test_failures", {}), internals.parseOutputSchema, "missing_required_input");
-  expectError(await callTool("parse_test_failures", "not-an-object"), internals.parseOutputSchema, "invalid_input_type");
+  expectEmptyMessageError(await callTool("parse_test_failures", {}), internals.parseOutputSchema, "missing_required_input", "source_text");
+  expectEmptyMessageError(await callTool("parse_test_failures", "not-an-object"), internals.parseOutputSchema, "invalid_input_type", "");
   expectError(await callTool("parse_test_failures", { source_text: 42 }), internals.parseOutputSchema, "invalid_input_type");
-  expectError(await callTool("parse_test_failures", { source_text: "   " }), internals.parseOutputSchema, "empty_input");
+  expectEmptyMessageError(await callTool("parse_test_failures", { source_text: "" }), internals.parseOutputSchema, "empty_input", "source_text");
+  expectEmptyMessageError(await callTool("parse_test_failures", { source_text: "   " }), internals.parseOutputSchema, "empty_input", "source_text");
   expectError(await callTool("parse_test_failures", { source_text: "Please rerun the tests in CI." }), internals.parseOutputSchema, "out_of_scope");
 });
 
@@ -334,11 +342,12 @@ test("classify_failure_type supports failure_text alone and failure_records alon
 });
 
 test("classify_failure_type business errors match output schema", async () => {
-  expectError(await callTool("classify_failure_type", {}), internals.classifyOutputSchema, "missing_required_input");
-  expectError(await callTool("classify_failure_type", "not-an-object"), internals.classifyOutputSchema, "invalid_input_type");
+  expectEmptyMessageError(await callTool("classify_failure_type", {}), internals.classifyOutputSchema, "missing_required_input", "");
+  expectEmptyMessageError(await callTool("classify_failure_type", "not-an-object"), internals.classifyOutputSchema, "invalid_input_type", "");
   expectError(await callTool("classify_failure_type", { failure_text: 1 }), internals.classifyOutputSchema, "invalid_input_type");
-  expectError(await callTool("classify_failure_type", { failure_text: "   " }), internals.classifyOutputSchema, "empty_input");
-  expectError(await callTool("classify_failure_type", { failure_records: [] }), internals.classifyOutputSchema, "empty_input");
+  expectEmptyMessageError(await callTool("classify_failure_type", { failure_text: "" }), internals.classifyOutputSchema, "empty_input", "");
+  expectEmptyMessageError(await callTool("classify_failure_type", { failure_text: "   " }), internals.classifyOutputSchema, "empty_input", "");
+  expectEmptyMessageError(await callTool("classify_failure_type", { failure_records: [] }), internals.classifyOutputSchema, "empty_input", "");
   expectError(await callTool("classify_failure_type", { failure_text: "Please fix the code." }), internals.classifyOutputSchema, "out_of_scope");
 });
 
@@ -364,6 +373,17 @@ test("classify_failure_type nested input errors match output schema", async () =
     }),
     internals.classifyOutputSchema,
     "invalid_input_type"
+  );
+});
+
+test("classify_failure_type missing nested field message includes empty", async () => {
+  expectEmptyMessageError(
+    await callTool("classify_failure_type", {
+      failure_records: [{ failure_id: "f1", test_name: "t", message: "m", location: "x.test.ts:1:1" }]
+    }),
+    internals.classifyOutputSchema,
+    "missing_required_input",
+    "failure_records[0].evidence"
   );
 });
 
@@ -394,11 +414,11 @@ test("build_triage_plan orders, merges, and limits actions", async () => {
 });
 
 test("build_triage_plan business errors match output schema", async () => {
-  expectError(await callTool("build_triage_plan", {}), internals.triageOutputSchema, "missing_required_input");
-  expectError(await callTool("build_triage_plan", "not-an-object"), internals.triageOutputSchema, "invalid_input_type");
+  expectEmptyMessageError(await callTool("build_triage_plan", {}), internals.triageOutputSchema, "missing_required_input", "classified_failures");
+  expectEmptyMessageError(await callTool("build_triage_plan", "not-an-object"), internals.triageOutputSchema, "invalid_input_type", "");
   expectError(await callTool("build_triage_plan", { classified_failures: "bad" }), internals.triageOutputSchema, "invalid_input_type");
-  expectError(await callTool("build_triage_plan", { classified_failures: [] }), internals.triageOutputSchema, "empty_input");
-  expectError(await callTool("build_triage_plan", { classified_failures: [{ failure_id: "", failure_type: "timeout", evidence: "" }] }), internals.triageOutputSchema, "empty_input");
+  expectEmptyMessageError(await callTool("build_triage_plan", { classified_failures: [] }), internals.triageOutputSchema, "empty_input", "classified_failures");
+  expectEmptyMessageError(await callTool("build_triage_plan", { classified_failures: [{ failure_id: "", failure_type: "timeout", evidence: "" }] }), internals.triageOutputSchema, "empty_input", "classified_failures[0]");
   expectError(
     await callTool("build_triage_plan", {
       classified_failures: [{ failure_id: "x", failure_type: "timeout", evidence: "Please deploy a fix." }]
@@ -437,6 +457,17 @@ test("build_triage_plan nested input errors match output schema", async () => {
     }),
     internals.triageOutputSchema,
     "invalid_input_type"
+  );
+});
+
+test("build_triage_plan missing nested field message includes empty", async () => {
+  expectEmptyMessageError(
+    await callTool("build_triage_plan", {
+      classified_failures: [{ failure_id: "f1", failure_type: "timeout" }]
+    }),
+    internals.triageOutputSchema,
+    "missing_required_input",
+    "classified_failures[0].evidence"
   );
 });
 
